@@ -1,4 +1,3 @@
-
 const username = "kongesque"; // replace with your github username
 const token = Keychain.get("github_token_here"); // replace this with you token
 const theme = "auto"; // "auto", "dark", or "light"
@@ -14,19 +13,7 @@ if (rawParam.includes("dark")) {
 }
 
 const heatmapThemes = {
-    auto: Device.isUsingDarkAppearance()
-        ? {
-            bg: ["#0d1117", "#0d1117", "#0d1117"],
-            text: "#ffffff",
-            accent: "#56d364",
-            box: ["#2e2f37", "#196c2e", "#196c2e", "#2ea043", "#56d364"]
-        }
-        : {
-            bg: ["#ffffff", "#ffffff", "#ffffff"],
-            text: "#000000",
-            accent: "#116329",
-            box: ["#eff2f5", "#aceebb", "#4ac26b", "#2da44e", "#116329"]
-        },
+
     light: {
         bg: ["#ffffff", "#ffffff", "#ffffff"],
         text: "#000000",
@@ -147,20 +134,40 @@ async function isOnline() {
     }
 }
 
+function getTheme() {
+    if (themeParam === "auto") {
+        const light = heatmapThemes.light;
+        const dark = heatmapThemes.dark;
+        return {
+            bg: light.bg.map((c, i) => Color.dynamic(new Color(c), new Color(dark.bg[i]))),
+            text: Color.dynamic(new Color(light.text), new Color(dark.text)),
+            accent: Color.dynamic(new Color(light.accent), new Color(dark.accent)),
+            box: light.box.map((c, i) => Color.dynamic(new Color(c), new Color(dark.box[i])))
+        };
+    }
+    const theme = heatmapThemes[themeParam] || heatmapThemes.light;
+    return {
+        bg: theme.bg.map(c => new Color(c)),
+        text: new Color(theme.text),
+        accent: new Color(theme.accent),
+        box: theme.box.map(c => new Color(c))
+    };
+}
+
 function getHeatmapColor(count) {
-    const boxes = heatmapThemes[themeParam].box;
-    if (count === 0) return new Color(boxes[0]);
-    if (count >= 20) return new Color(boxes[4]);
-    if (count >= 10) return new Color(boxes[3]);
-    if (count >= 5) return new Color(boxes[2]);
-    if (count >= 1) return new Color(boxes[1]);
-    return new Color(boxes[0]);
+    const boxes = getTheme().box;
+    if (count === 0) return boxes[0];
+    if (count >= 20) return boxes[4];
+    if (count >= 10) return boxes[3];
+    if (count >= 5) return boxes[2];
+    if (count >= 1) return boxes[1];
+    return boxes[0];
 }
 
 function createGradientBackground() {
-    const theme = heatmapThemes[themeParam];
+    const theme = getTheme();
     const gradient = new LinearGradient();
-    gradient.colors = theme.bg.map(c => new Color(c));
+    gradient.colors = theme.bg;
     gradient.locations = [0.0, 0.5, 1.0];
     return gradient;
 }
@@ -338,11 +345,11 @@ async function createHeatmapWidget() {
         footer.layoutHorizontally();
         footer.centerAlignContent();
 
-        footer.addSpacer(28);
+        footer.addSpacer(24);
 
         // Left: Username
         const userText = footer.addText(`@${username}`);
-        userText.textColor = new Color(heatmapThemes[themeParam]?.text || "#ffffff");
+        userText.textColor = getTheme().text;
         userText.font = new Font(FONT_NAME, 11);
         userText.opacity = 0.8;
 
@@ -350,13 +357,13 @@ async function createHeatmapWidget() {
 
         // Right: Streak
         const totalText = footer.addText(`${streak} `);
-        totalText.textColor = new Color(heatmapThemes[themeParam]?.text || "#ffffff");
+        totalText.textColor = getTheme().text;
         totalText.font = new Font(FONT_NAME, 11);
         const totalText2 = footer.addText(`${streak === 1 ? "day" : "days"} streak`);
-        totalText2.textColor = new Color(heatmapThemes[themeParam]?.text || "#ffffff");
+        totalText2.textColor = getTheme().text;
         totalText2.font = new Font(FONT_NAME, 11);
 
-        footer.addSpacer(32);
+        footer.addSpacer(26);
 
         return widget;
     } catch (error) {
