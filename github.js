@@ -4,6 +4,7 @@ const username = "kongesque"; // replace with your github username
 const token = Keychain.get("github_token_here"); // replace this with you token
 const size = "medium";
 const theme = "auto"; // "auto", "dark", or "light"
+const FONT_NAME = "Menlo";
 
 const rawParam = (args.widgetParameter || theme).toLowerCase();
 let themeParam = "auto";
@@ -255,7 +256,7 @@ function createErrorWidget(message) {
     widget.backgroundGradient = createGradientBackground();
 
     const errorText = widget.addText(message);
-    errorText.font = Font.systemFont(14);
+    errorText.font = new Font(FONT_NAME, 14);
     errorText.textColor = Color.red();
     errorText.centerAlignText();
 
@@ -318,7 +319,7 @@ async function createHeatmapWidget() {
             topRow.layoutHorizontally();
             topRow.addSpacer();
             const offlineIndicator = topRow.addText("Offline");
-            offlineIndicator.font = Font.boldSystemFont(8);
+            offlineIndicator.font = new Font(`${FONT_NAME}-Bold`, 8);
             offlineIndicator.textColor = Color.orange();
             topRow.addSpacer(12);
             widget.addSpacer(2);
@@ -363,7 +364,7 @@ async function createHeatmapWidget() {
         // Left: Username
         const userText = footer.addText(`@${username}`);
         userText.textColor = new Color(heatmapThemes[themeParam]?.text || "#ffffff");
-        userText.font = Font.mediumSystemFont(12);
+        userText.font = new Font(FONT_NAME, 12);
         userText.opacity = 0.8;
 
         footer.addSpacer();
@@ -371,10 +372,10 @@ async function createHeatmapWidget() {
         // Right: Streak
         const totalText = footer.addText(`${streak} `);
         totalText.textColor = new Color(heatmapThemes[themeParam]?.accent || "#00ff4e");
-        totalText.font = Font.heavySystemFont(12);
+        totalText.font = new Font(`${FONT_NAME}-Bold`, 12);
         const totalText2 = footer.addText(`${streak === 1 ? "day" : "days"} streak`);
         totalText2.textColor = new Color(heatmapThemes[themeParam]?.text || "#ffffff");
-        totalText2.font = Font.mediumSystemFont(11);
+        totalText2.font = new Font(FONT_NAME, 11);
 
         footer.addSpacer(12);
         widget.addSpacer();
