@@ -1,4 +1,3 @@
-// icon-color: deep-blue; icon-glyph: chalkboard-teacher;
 
 const username = "kongesque"; // replace with your github username
 const token = Keychain.get("github_token_here"); // replace this with you token
@@ -184,12 +183,15 @@ async function fetchHeatmapData() {
     try {
         console.log("🌐 Online mode - fetching fresh heatmap data");
         const now = new Date();
+        const toDate = new Date(now);
+        toDate.setDate(now.getDate() + 1); // Add 1 day to ensure we cover 'today' in all timezones
+
         const fromDate = new Date(now);
         fromDate.setDate(now.getDate() - 133); // ~19 weeks
 
         const query = `{
       user(login: "${username}") {
-        contributionsCollection(from: "${fromDate.toISOString()}", to: "${now.toISOString()}") {
+        contributionsCollection(from: "${fromDate.toISOString()}", to: "${toDate.toISOString()}") {
           totalCommitContributions
           contributionCalendar {
             totalContributions
@@ -217,7 +219,10 @@ async function fetchHeatmapData() {
 
         // calculate streak
         const allDays = contribData.contributionCalendar.weeks.flatMap(w => w.contributionDays);
-        const todayStr = new Date().toISOString().split("T")[0];
+        const df = new DateFormatter();
+        df.dateFormat = "yyyy-MM-dd";
+        const todayStr = df.string(new Date());
+
         let currentStreak = 0;
         for (let i = allDays.length - 1; i >= 0; i--) {
             const d = allDays[i];
@@ -275,7 +280,7 @@ async function createHeatmapWidget() {
 
         const widget = new ListWidget();
         widget.backgroundGradient = createGradientBackground();
-        widget.setPadding(11, 11, 11, 11);
+        widget.setPadding(11, 11, 21, 11);
 
         // Add offline indicator at top right if needed
         if (!online) {
@@ -295,11 +300,16 @@ async function createHeatmapWidget() {
         grid.layoutHorizontally();
         grid.centerAlignContent();
 
-        const boxSize = 13;
-        const boxSpacing = 3;
+        const boxSize = 10;
+        const boxSpacing = 4;
         const displayWeeks = weeks;
 
         grid.addSpacer();
+
+        // Date formatter for future check
+        const df = new DateFormatter();
+        df.dateFormat = "yyyy-MM-dd";
+        const todayStr = df.string(new Date());
 
         for (let w = 0; w < displayWeeks.length; w++) {
             const col = grid.addStack();
@@ -310,7 +320,12 @@ async function createHeatmapWidget() {
                 const day = displayWeeks[w].contributionDays[d];
                 const cell = col.addStack();
                 cell.size = new Size(boxSize, boxSize);
-                cell.backgroundColor = getHeatmapColor(day?.contributionCount || 0);
+
+                if (day && day.date > todayStr) {
+                    cell.backgroundColor = Color.clear();
+                } else {
+                    cell.backgroundColor = getHeatmapColor(day?.contributionCount || 0);
+                }
                 cell.cornerRadius = 2;
             }
             grid.addSpacer(boxSpacing);
@@ -323,12 +338,12 @@ async function createHeatmapWidget() {
         footer.layoutHorizontally();
         footer.centerAlignContent();
 
-        footer.addSpacer(10);
+        footer.addSpacer(28);
 
         // Left: Username
         const userText = footer.addText(`@${username}`);
         userText.textColor = new Color(heatmapThemes[themeParam]?.text || "#ffffff");
-        userText.font = new Font(FONT_NAME, 12);
+        userText.font = new Font(FONT_NAME, 11);
         userText.opacity = 0.8;
 
         footer.addSpacer();
@@ -336,13 +351,12 @@ async function createHeatmapWidget() {
         // Right: Streak
         const totalText = footer.addText(`${streak} `);
         totalText.textColor = new Color(heatmapThemes[themeParam]?.text || "#ffffff");
-        totalText.font = new Font(FONT_NAME, 12);
+        totalText.font = new Font(FONT_NAME, 11);
         const totalText2 = footer.addText(`${streak === 1 ? "day" : "days"} streak`);
         totalText2.textColor = new Color(heatmapThemes[themeParam]?.text || "#ffffff");
-        totalText2.font = new Font(FONT_NAME, 12);
+        totalText2.font = new Font(FONT_NAME, 11);
 
-        footer.addSpacer(4);
-        widget.addSpacer();
+        footer.addSpacer(32);
 
         return widget;
     } catch (error) {
