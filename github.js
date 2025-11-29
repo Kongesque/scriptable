@@ -2,7 +2,6 @@
 
 const username = "kongesque"; // replace with your github username
 const token = Keychain.get("github_token_here"); // replace this with you token
-const size = "medium";
 const theme = "auto"; // "auto", "dark", or "light"
 const FONT_NAME = "Menlo";
 
@@ -149,12 +148,6 @@ async function isOnline() {
     }
 }
 
-
-
-const UI = {
-    medium: { font: 13, headfont: 24, lineSpacing: 5, logo: 38, pad: 14 }
-}[size];
-
 function getHeatmapColor(count) {
     const boxes = heatmapThemes[themeParam].box;
     if (count === 0) return new Color(boxes[0]);
@@ -239,6 +232,14 @@ async function fetchHeatmapData() {
         };
 
         console.log("✅ Fresh heatmap data fetched successfully");
+
+        // Save to cache
+        console.log("Saving heatmap data to cache...");
+        await cacheManager.saveCache({
+            heatmapData: result,
+            timestamp: Date.now()
+        });
+
         return result;
     } catch (error) {
         console.error("❌ Failed to fetch heatmap data:", error);
@@ -265,45 +266,8 @@ function createErrorWidget(message) {
 
 async function createHeatmapWidget() {
     try {
+        const data = await fetchHeatmapData();
         const online = await isOnline();
-        let data;
-
-        if (online) {
-            // When online, fetch fresh data
-            try {
-                console.log("Fetching fresh heatmap data...");
-                data = await fetchHeatmapData();
-
-                // Save to cache
-                console.log("Saving heatmap data to cache...");
-                const existingCache = await cacheManager.loadCache() || {};
-                await cacheManager.saveCache({
-                    ...existingCache,
-                    heatmapData: data,
-                    timestamp: Date.now()
-                });
-                console.log("Heatmap data cached successfully");
-            } catch (error) {
-                console.error("Failed to fetch heatmap data:", error);
-                const cachedData = await cacheManager.loadCache();
-                if (cachedData && cachedData.heatmapData) {
-                    data = cachedData.heatmapData;
-                    console.log("Using cached heatmap data as fallback");
-                } else {
-                    throw error;
-                }
-            }
-        } else {
-            // When offline, load from cache
-            console.log("Offline mode - loading heatmap from cache...");
-            const cachedData = await cacheManager.loadCache();
-            if (cachedData && cachedData.heatmapData) {
-                data = cachedData.heatmapData;
-                console.log("Using cached heatmap data (offline)");
-            } else {
-                throw new Error("No internet connection and no heatmap cache available");
-            }
-        }
 
         const weeks = data.contributionCalendar.weeks;
         const total = data.contributionCalendar.totalContributions;
@@ -359,7 +323,7 @@ async function createHeatmapWidget() {
         footer.layoutHorizontally();
         footer.centerAlignContent();
 
-        footer.addSpacer(12);
+        footer.addSpacer(10);
 
         // Left: Username
         const userText = footer.addText(`@${username}`);
@@ -371,13 +335,13 @@ async function createHeatmapWidget() {
 
         // Right: Streak
         const totalText = footer.addText(`${streak} `);
-        totalText.textColor = new Color(heatmapThemes[themeParam]?.accent || "#00ff4e");
-        totalText.font = new Font(`${FONT_NAME}-Bold`, 12);
+        totalText.textColor = new Color(heatmapThemes[themeParam]?.text || "#ffffff");
+        totalText.font = new Font(FONT_NAME, 12);
         const totalText2 = footer.addText(`${streak === 1 ? "day" : "days"} streak`);
         totalText2.textColor = new Color(heatmapThemes[themeParam]?.text || "#ffffff");
-        totalText2.font = new Font(FONT_NAME, 11);
+        totalText2.font = new Font(FONT_NAME, 12);
 
-        footer.addSpacer(12);
+        footer.addSpacer(4);
         widget.addSpacer();
 
         return widget;
