@@ -1,9 +1,12 @@
 const username = "kongesque"; // replace with your github username
-const token = Keychain.get("github_token_here"); // replace this with you token
+const token = Keychain.get("github_token_here"); // replace this with your token
 const theme = "auto"; // "auto", "dark", or "light"
 const FONT_NAME = "Menlo";
 const BOX_SIZE = 10;
 const BOX_SPACING = 4;
+
+const df = new DateFormatter();
+df.dateFormat = "yyyy-MM-dd";
 
 const rawParam = (args.widgetParameter || theme).toLowerCase();
 let themeParam = "auto";
@@ -64,9 +67,6 @@ class CacheManager {
         try {
             console.log(`Attempting to save cache with data: ${Object.keys(data).join(', ')}`);
 
-            // Ensure directory exists before writing
-            this.ensureCacheDir();
-
             const cacheData = {
                 timestamp: Date.now(),
                 data: data
@@ -76,15 +76,7 @@ class CacheManager {
             console.log(`Writing cache data, size: ${jsonString.length} characters`);
 
             this.fm.writeString(this.cacheFile, jsonString);
-
-            // Download from iCloud to ensure it's available
-            if (this.fm.fileExists(this.cacheFile)) {
-                await this.fm.downloadFileFromiCloud(this.cacheFile);
-                const fileSize = this.fm.fileSize(this.cacheFile);
-                console.log(`Cache saved successfully! File size: ${fileSize} bytes`);
-            } else {
-                console.error("Cache file was not created!");
-            }
+            console.log("Cache saved successfully!");
         } catch (error) {
             console.error("Failed to save cache:", error);
             console.error(`Error details: ${error.message}`);
@@ -123,19 +115,6 @@ class CacheManager {
 // Initialize cache manager
 const cacheManager = new CacheManager();
 
-// Helper function to check internet connectivity
-async function isOnline() {
-    try {
-        const req = new Request("https://www.google.com");
-        req.timeoutInterval = 5; // 5 second timeout
-        await req.load();
-        return true;
-    } catch (error) {
-        console.log("No internet connection detected");
-        return false;
-    }
-}
-
 function getTheme() {
     if (themeParam === "auto") {
         const light = heatmapThemes.light;
@@ -172,25 +151,12 @@ function createGradientBackground(theme) {
     return gradient;
 }
 
-async function fetchHeatmapData(online) {
-
-    // If offline, use cache immediately
-    if (!online) {
-        console.log("Offline mode - loading heatmap data from cache");
-        const cachedData = await cacheManager.loadCache();
-        if (cachedData && cachedData.heatmapData) {
-            console.log("✅ Using cached heatmap data (offline)");
-            return cachedData.heatmapData;
-        }
-        throw new Error("No internet connection and no valid cache available");
-    }
-
-    // If online, try to fetch fresh data
+async function fetchHeatmapData() {
     try {
-        console.log("🌐 Online mode - fetching fresh heatmap data");
+        console.log("🌐 Fetching fresh heatmap data...");
         const now = new Date();
         const toDate = new Date(now);
-        toDate.setDate(now.getDate() + 1); // Add 1 day to ensure we cover 'today' in all timezones
+        toDate.setDate(now.getDate() + 1);
 
         const fromDate = new Date(now);
         fromDate.setDate(now.getDate() - 139); // ~20 weeks
@@ -221,12 +187,15 @@ async function fetchHeatmapData(online) {
         req.body = JSON.stringify({ query });
 
         const json = await req.loadJSON();
+
+        if (!json.data || !json.data.user) {
+            throw new Error("Invalid response from GitHub API");
+        }
+
         const contribData = json.data.user.contributionsCollection;
 
         // calculate streak
         const allDays = contribData.contributionCalendar.weeks.flatMap(w => w.contributionDays);
-        const df = new DateFormatter();
-        df.dateFormat = "yyyy-MM-dd";
         const todayStr = df.string(new Date());
 
         let currentStreak = 0;
@@ -245,7 +214,6 @@ async function fetchHeatmapData(online) {
         console.log("✅ Fresh heatmap data fetched successfully");
 
         // Save to cache
-        console.log("Saving heatmap data to cache...");
         await cacheManager.saveCache({
             heatmapData: result,
             timestamp: Date.now()
@@ -253,11 +221,11 @@ async function fetchHeatmapData(online) {
 
         return result;
     } catch (error) {
-        console.error("❌ Failed to fetch heatmap data:", error);
+        console.error("❌ Failed to fetch heatmap data: " + error.message);
         const cachedData = await cacheManager.loadCache();
         if (cachedData && cachedData.heatmapData) {
             console.log("✅ Using cached heatmap data as fallback");
-            return cachedData.heatmapData;
+            return { ...cachedData.heatmapData, isCached: true };
         }
         throw error;
     }
@@ -277,20 +245,18 @@ function createErrorWidget(message) {
 
 async function createHeatmapWidget() {
     try {
-        const online = await isOnline();
-        const data = await fetchHeatmapData(online);
+        const data = await fetchHeatmapData();
         const theme = getTheme();
 
         const weeks = data.contributionCalendar.weeks;
-        const total = data.contributionCalendar.totalContributions;
         const streak = data.currentStreak;
 
         const widget = new ListWidget();
         widget.backgroundGradient = createGradientBackground(theme);
         widget.setPadding(11, 11, 21, 11);
 
-        // Add offline indicator at top right if needed
-        if (!online) {
+        // Add offline indicator if data is from cache
+        if (data.isCached) {
             const topRow = widget.addStack();
             topRow.layoutHorizontally();
             topRow.addSpacer();
@@ -311,9 +277,6 @@ async function createHeatmapWidget() {
 
         grid.addSpacer();
 
-        // Date formatter for future check
-        const df = new DateFormatter();
-        df.dateFormat = "yyyy-MM-dd";
         const todayStr = df.string(new Date());
 
         for (let w = 0; w < displayWeeks.length; w++) {
