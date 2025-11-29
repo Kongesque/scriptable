@@ -2,6 +2,8 @@ const username = "kongesque"; // replace with your github username
 const token = Keychain.get("github_token_here"); // replace this with you token
 const theme = "auto"; // "auto", "dark", or "light"
 const FONT_NAME = "Menlo";
+const BOX_SIZE = 10;
+const BOX_SPACING = 4;
 
 const rawParam = (args.widgetParameter || theme).toLowerCase();
 let themeParam = "auto";
@@ -154,26 +156,23 @@ function getTheme() {
     };
 }
 
-function getHeatmapColor(count) {
-    const boxes = getTheme().box;
-    if (count === 0) return boxes[0];
-    if (count >= 20) return boxes[4];
-    if (count >= 10) return boxes[3];
-    if (count >= 5) return boxes[2];
-    if (count >= 1) return boxes[1];
-    return boxes[0];
+function getHeatmapColor(count, themeBoxes) {
+    if (count === 0) return themeBoxes[0];
+    if (count >= 20) return themeBoxes[4];
+    if (count >= 10) return themeBoxes[3];
+    if (count >= 5) return themeBoxes[2];
+    if (count >= 1) return themeBoxes[1];
+    return themeBoxes[0];
 }
 
-function createGradientBackground() {
-    const theme = getTheme();
+function createGradientBackground(theme) {
     const gradient = new LinearGradient();
     gradient.colors = theme.bg;
     gradient.locations = [0.0, 0.5, 1.0];
     return gradient;
 }
 
-async function fetchHeatmapData() {
-    const online = await isOnline();
+async function fetchHeatmapData(online) {
 
     // If offline, use cache immediately
     if (!online) {
@@ -194,7 +193,7 @@ async function fetchHeatmapData() {
         toDate.setDate(now.getDate() + 1); // Add 1 day to ensure we cover 'today' in all timezones
 
         const fromDate = new Date(now);
-        fromDate.setDate(now.getDate() - 133); // ~19 weeks
+        fromDate.setDate(now.getDate() - 139); // ~20 weeks
 
         const query = `{
       user(login: "${username}") {
@@ -266,7 +265,7 @@ async function fetchHeatmapData() {
 
 function createErrorWidget(message) {
     const widget = new ListWidget();
-    widget.backgroundGradient = createGradientBackground();
+    widget.backgroundGradient = createGradientBackground(getTheme());
 
     const errorText = widget.addText(message);
     errorText.font = new Font(FONT_NAME, 14);
@@ -278,15 +277,16 @@ function createErrorWidget(message) {
 
 async function createHeatmapWidget() {
     try {
-        const data = await fetchHeatmapData();
         const online = await isOnline();
+        const data = await fetchHeatmapData(online);
+        const theme = getTheme();
 
         const weeks = data.contributionCalendar.weeks;
         const total = data.contributionCalendar.totalContributions;
         const streak = data.currentStreak;
 
         const widget = new ListWidget();
-        widget.backgroundGradient = createGradientBackground();
+        widget.backgroundGradient = createGradientBackground(theme);
         widget.setPadding(11, 11, 21, 11);
 
         // Add offline indicator at top right if needed
@@ -307,8 +307,6 @@ async function createHeatmapWidget() {
         grid.layoutHorizontally();
         grid.centerAlignContent();
 
-        const boxSize = 10;
-        const boxSpacing = 4;
         const displayWeeks = weeks;
 
         grid.addSpacer();
@@ -321,21 +319,21 @@ async function createHeatmapWidget() {
         for (let w = 0; w < displayWeeks.length; w++) {
             const col = grid.addStack();
             col.layoutVertically();
-            col.spacing = boxSpacing;
+            col.spacing = BOX_SPACING;
 
             for (let d = 0; d < 7; d++) {
                 const day = displayWeeks[w].contributionDays[d];
                 const cell = col.addStack();
-                cell.size = new Size(boxSize, boxSize);
+                cell.size = new Size(BOX_SIZE, BOX_SIZE);
 
                 if (day && day.date > todayStr) {
                     cell.backgroundColor = Color.clear();
                 } else {
-                    cell.backgroundColor = getHeatmapColor(day?.contributionCount || 0);
+                    cell.backgroundColor = getHeatmapColor(day?.contributionCount || 0, theme.box);
                 }
                 cell.cornerRadius = 2;
             }
-            grid.addSpacer(boxSpacing);
+            grid.addSpacer(BOX_SPACING);
         }
 
         grid.addSpacer();
@@ -349,7 +347,7 @@ async function createHeatmapWidget() {
 
         // Left: Username
         const userText = footer.addText(`@${username}`);
-        userText.textColor = getTheme().text;
+        userText.textColor = theme.text;
         userText.font = new Font(FONT_NAME, 11);
         userText.opacity = 0.8;
 
@@ -357,10 +355,10 @@ async function createHeatmapWidget() {
 
         // Right: Streak
         const totalText = footer.addText(`${streak} `);
-        totalText.textColor = getTheme().text;
+        totalText.textColor = theme.text;
         totalText.font = new Font(FONT_NAME, 11);
         const totalText2 = footer.addText(`${streak === 1 ? "day" : "days"} streak`);
-        totalText2.textColor = getTheme().text;
+        totalText2.textColor = theme.text;
         totalText2.font = new Font(FONT_NAME, 11);
 
         footer.addSpacer(26);
@@ -372,7 +370,6 @@ async function createHeatmapWidget() {
     }
 }
 
-// ===================================
 const widget = await createHeatmapWidget();
 
 if (!config.runsInWidget) await widget.presentMedium();
