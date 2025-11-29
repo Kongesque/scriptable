@@ -3,6 +3,16 @@
 const username = "kongesque"; // replace with your github username
 const token = Keychain.get("github_token_here"); // replace this with you token
 const size = "medium";
+const theme = "auto"; // "auto", "dark", or "light"
+
+const rawParam = (args.widgetParameter || theme).toLowerCase();
+let themeParam = "auto";
+
+if (rawParam.includes("dark")) {
+    themeParam = "dark";
+} else if (rawParam.includes("light")) {
+    themeParam = "light";
+}
 
 const heatmapThemes = {
     auto: Device.isUsingDarkAppearance()
@@ -138,14 +148,7 @@ async function isOnline() {
     }
 }
 
-const rawParam = (args.widgetParameter || "heatmap").toLowerCase();
-let themeParam = "auto";
 
-if (rawParam.includes("dark")) {
-    themeParam = "dark";
-} else if (rawParam.includes("light")) {
-    themeParam = "light";
-}
 
 const UI = {
     medium: { font: 13, headfont: 24, lineSpacing: 5, logo: 38, pad: 14 }
@@ -369,7 +372,7 @@ async function createHeatmapWidget() {
         const totalText = footer.addText(`${streak} `);
         totalText.textColor = new Color(heatmapThemes[themeParam]?.accent || "#00ff4e");
         totalText.font = Font.heavySystemFont(12);
-        const totalText2 = footer.addText(`days streak`);
+        const totalText2 = footer.addText(`${streak === 1 ? "day" : "days"} streak`);
         totalText2.textColor = new Color(heatmapThemes[themeParam]?.text || "#ffffff");
         totalText2.font = Font.mediumSystemFont(11);
 
