@@ -221,6 +221,8 @@ async function fetchHeatmapData() {
         let hasContributionToday = false;
         let streakBroken = false;
 
+        let lastContributionDate = null;
+
         // Iterate backwards through weeks
         for (let w = weeks.length - 1; w >= 0; w--) {
             const days = weeks[w].contributionDays;
@@ -240,6 +242,9 @@ async function fetchHeatmapData() {
 
                 if (day.contributionCount > 0) {
                     currentStreak++;
+                    if (!lastContributionDate) {
+                        lastContributionDate = new Date(day.date);
+                    }
                 } else if (day.date !== todayStr) {
                     // Zero contributions and not today -> streak broken
                     streakBroken = true;
@@ -252,7 +257,8 @@ async function fetchHeatmapData() {
         const result = {
             ...contribData,
             currentStreak,
-            hasContributionToday
+            hasContributionToday,
+            lastContributionDate: lastContributionDate ? lastContributionDate.toISOString() : null
         };
 
         console.log("✅ Fresh heatmap data fetched successfully");
@@ -374,13 +380,48 @@ async function createHeatmapWidget() {
 
         footer.addSpacer();
 
-        // Right: Streak
-        const totalText = footer.addText(`${streak} `);
-        totalText.textColor = !hasContributionToday ? theme.accent : theme.text;
-        totalText.font = !hasContributionToday ? new Font(`${FONT_NAME}-Bold`, 11) : new Font(FONT_NAME, 11);
-        const totalText2 = footer.addText(`${streak === 1 ? "day" : "days"} streak`);
-        totalText2.textColor = !hasContributionToday ? theme.accent : theme.text;
-        totalText2.font = !hasContributionToday ? new Font(`${FONT_NAME}-Bold`, 11) : new Font(FONT_NAME, 11);
+        // Right: Streak / Last Commit
+        let statusText = "";
+        let statusColor = theme.text;
+
+        if (hasContributionToday) {
+            statusText = `${streak} ${streak === 1 ? "day" : "days"} streak`;
+            statusColor = theme.accent; // Green (or theme accent)
+        } else {
+            const lastDate = data.lastContributionDate ? new Date(data.lastContributionDate) : null;
+            if (lastDate) {
+                const now = new Date();
+                // Reset time part for accurate day calculation
+                now.setHours(0, 0, 0, 0);
+                lastDate.setHours(0, 0, 0, 0);
+
+                const diffTime = Math.abs(now - lastDate);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                if (diffDays < 7) {
+                    statusText = `Last commit ${diffDays} ${diffDays === 1 ? "day" : "days"} ago`;
+                } else {
+                    const day = String(lastDate.getDate()).padStart(2, '0');
+                    const month = String(lastDate.getMonth() + 1).padStart(2, '0');
+                    const year = String(lastDate.getFullYear()).slice(-2);
+                    statusText = `Last commit ${day}-${month}-${year}`;
+                }
+            } else {
+                statusText = "No recent commits";
+            }
+            // Use red accent for no contribution
+            let ncTheme;
+            if (themeParam === "auto") {
+                ncTheme = mapThemeColors(noContributionTheme.light, noContributionTheme.dark);
+            } else {
+                ncTheme = mapThemeColors(noContributionTheme[themeParam] || noContributionTheme.light);
+            }
+            statusColor = ncTheme.accent;
+        }
+
+        const totalText = footer.addText(statusText);
+        totalText.textColor = statusColor;
+        totalText.font = new Font(FONT_NAME, 11);
 
         footer.addSpacer(32);
 
