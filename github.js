@@ -158,9 +158,8 @@ function getTheme() {
     return resolveTheme(heatmapThemes);
 }
 
-function getHeatmapColor(count, themeBoxes, maxContribution) {
+function getHeatmapColor(count, themeBoxes, q) {
     if (count === 0) return themeBoxes[0];
-    const q = maxContribution / 4;
     if (count >= q * 3) return themeBoxes[4];
     if (count >= q * 2) return themeBoxes[3];
     if (count >= q * 1) return themeBoxes[2];
@@ -348,6 +347,7 @@ async function createHeatmapWidget() {
         grid.addSpacer();
 
         const todayStr = df.string(new Date());
+        const q = maxContribution / 4;
 
         for (let w = 0; w < displayWeeks.length; w++) {
             const col = grid.addStack();
@@ -362,7 +362,7 @@ async function createHeatmapWidget() {
                 if (!day || day.date > todayStr) {
                     cell.backgroundColor = Color.clear();
                 } else {
-                    cell.backgroundColor = getHeatmapColor(day?.contributionCount || 0, theme.box, maxContribution);
+                    cell.backgroundColor = getHeatmapColor(day?.contributionCount || 0, theme.box, q);
                 }
                 cell.cornerRadius = 2;
             }
