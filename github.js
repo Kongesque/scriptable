@@ -409,14 +409,8 @@ async function createHeatmapWidget() {
             } else {
                 statusText = "No recent commits";
             }
-            // Use red accent for no contribution
-            let ncTheme;
-            if (themeParam === "auto") {
-                ncTheme = mapThemeColors(noContributionTheme.light, noContributionTheme.dark);
-            } else {
-                ncTheme = mapThemeColors(noContributionTheme[themeParam] || noContributionTheme.light);
-            }
-            statusColor = ncTheme.accent;
+
+            statusColor = theme.accent;
         }
 
         const totalText = footer.addText(statusText);
