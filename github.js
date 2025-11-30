@@ -7,6 +7,7 @@ const BOX_SPACING = 4;
 
 const df = new DateFormatter();
 df.dateFormat = "yyyy-MM-dd";
+df.locale = "en-US";
 
 const rawParam = (args.widgetParameter || theme).toLowerCase();
 let themeParam = "auto";
@@ -18,7 +19,6 @@ if (rawParam.includes("dark")) {
 }
 
 const heatmapThemes = {
-
     light: {
         bg: ["#ffffff", "#ffffff", "#ffffff"],
         text: "#000000",
@@ -159,7 +159,7 @@ async function fetchHeatmapData() {
         toDate.setDate(now.getDate() + 1);
 
         const fromDate = new Date(now);
-        fromDate.setDate(now.getDate() - 139); // ~20 weeks
+        fromDate.setDate(now.getDate() - 147); // 21 weeks
 
         const query = `{
       user(login: "${username}") {
@@ -201,9 +201,14 @@ async function fetchHeatmapData() {
         let currentStreak = 0;
         for (let i = allDays.length - 1; i >= 0; i--) {
             const d = allDays[i];
-            if (d.date === todayStr) continue;
-            if (d.contributionCount > 0) currentStreak++;
-            else break;
+            if (d.date > todayStr) {
+                continue;
+            }
+            if (d.contributionCount > 0) {
+                currentStreak++;
+            } else if (d.date !== todayStr) {
+                break;
+            }
         }
 
         const result = {
@@ -273,7 +278,7 @@ async function createHeatmapWidget() {
         grid.layoutHorizontally();
         grid.centerAlignContent();
 
-        const displayWeeks = weeks;
+        const displayWeeks = weeks.slice(-21);
 
         grid.addSpacer();
 
@@ -289,7 +294,7 @@ async function createHeatmapWidget() {
                 const cell = col.addStack();
                 cell.size = new Size(BOX_SIZE, BOX_SIZE);
 
-                if (day && day.date > todayStr) {
+                if (!day || day.date > todayStr) {
                     cell.backgroundColor = Color.clear();
                 } else {
                     cell.backgroundColor = getHeatmapColor(day?.contributionCount || 0, theme.box);
