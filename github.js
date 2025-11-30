@@ -388,7 +388,12 @@ async function createHeatmapWidget() {
             statusText = `${streak} ${streak === 1 ? "day" : "days"} streak`;
             statusColor = theme.accent; // Green (or theme accent)
         } else {
-            const lastDate = data.lastContributionDate ? new Date(data.lastContributionDate) : null;
+            let lastDate = null;
+            if (data.lastContributionDate) {
+                const dateFromData = new Date(data.lastContributionDate);
+                lastDate = new Date(dateFromData.getUTCFullYear(), dateFromData.getUTCMonth(), dateFromData.getUTCDate());
+            }
+
             if (lastDate) {
                 const now = new Date();
                 // Reset time part for accurate day calculation
