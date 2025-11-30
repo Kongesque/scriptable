@@ -87,7 +87,7 @@ class CacheManager {
                 data: data
             };
 
-            const jsonString = JSON.stringify(cacheData, null, 2);
+            const jsonString = JSON.stringify(cacheData);
             console.log(`Writing cache data, size: ${jsonString.length} characters`);
 
             this.fm.writeString(this.cacheFile, jsonString);
