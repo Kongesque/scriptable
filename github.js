@@ -253,12 +253,35 @@ async function createHeatmapWidget() {
         const data = await fetchHeatmapData();
         const theme = getTheme();
 
+        // Check if today has contributions
+        const todayStr = df.string(new Date());
+        const allContributionDays = data.contributionCalendar.weeks.flatMap(w => w.contributionDays);
+        const todayData = allContributionDays.find(d => d.date === todayStr);
+        const hasContributionToday = todayData && todayData.contributionCount > 0;
+
+        if (!hasContributionToday) {
+            const lightRed = ["#eff2f5", "#ffcdd2", "#ef9a9a", "#e57373", "#d32f2f"];
+            const darkRed = ["#2e2f37", "#5c1e1e", "#8c2b2b", "#c62828", "#ff5252"];
+
+            if (themeParam === "auto") {
+                theme.box = lightRed.map((c, i) => Color.dynamic(new Color(c), new Color(darkRed[i])));
+                theme.accent = Color.dynamic(new Color("#d32f2f"), new Color("#ff5252"));
+            } else if (themeParam === "dark") {
+                theme.box = darkRed.map(c => new Color(c));
+                theme.accent = new Color("#ff5252");
+            } else {
+                theme.box = lightRed.map(c => new Color(c));
+                theme.accent = new Color("#d32f2f");
+            }
+        }
+
         const weeks = data.contributionCalendar.weeks;
         const streak = data.currentStreak;
 
         const widget = new ListWidget();
         widget.backgroundGradient = createGradientBackground(theme);
         widget.setPadding(11, 11, 21, 11);
+        widget.url = `https://github.com/${username}`;
 
         // Add offline indicator if data is from cache
         if (data.isCached) {
@@ -278,11 +301,9 @@ async function createHeatmapWidget() {
         grid.layoutHorizontally();
         grid.centerAlignContent();
 
-        const displayWeeks = weeks.slice(-21);
+        const displayWeeks = weeks.slice(-20);
 
         grid.addSpacer();
-
-        const todayStr = df.string(new Date());
 
         for (let w = 0; w < displayWeeks.length; w++) {
             const col = grid.addStack();
