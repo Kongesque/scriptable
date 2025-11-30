@@ -35,10 +35,14 @@ const heatmapThemes = {
 
 const noContributionTheme = {
     light: {
+        bg: ["#ffffff", "#ffffff", "#ffffff"],
+        text: "#000000",
         box: ["#eff2f5", "#ffcdd2", "#ef9a9a", "#e57373", "#d32f2f"],
         accent: "#d32f2f"
     },
     dark: {
+        bg: ["#0d1117", "#0d1117", "#0d1117"],
+        text: "#ffffff",
         box: ["#2e2f37", "#5c1e1e", "#8c2b2b", "#c62828", "#ff5252"],
         accent: "#ff5252"
     }
@@ -345,7 +349,7 @@ async function createHeatmapWidget() {
         footer.layoutHorizontally();
         footer.centerAlignContent();
 
-        footer.addSpacer(28);
+        footer.addSpacer(30);
 
         // Left: Username
         const userText = footer.addText(`@${username}`);
@@ -363,7 +367,7 @@ async function createHeatmapWidget() {
         totalText2.textColor = theme.text;
         totalText2.font = new Font(FONT_NAME, 11);
 
-        footer.addSpacer(30);
+        footer.addSpacer(32);
 
         return widget;
     } catch (error) {
