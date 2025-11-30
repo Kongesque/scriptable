@@ -214,25 +214,40 @@ async function fetchHeatmapData() {
         const contribData = json.data.user.contributionsCollection;
 
         // calculate streak
-        const allDays = contribData.contributionCalendar.weeks.flatMap(w => w.contributionDays);
+        const weeks = contribData.contributionCalendar.weeks;
         const todayStr = df.string(new Date());
 
         let currentStreak = 0;
-        for (let i = allDays.length - 1; i >= 0; i--) {
-            const d = allDays[i];
-            if (d.date > todayStr) {
-                continue;
-            }
-            if (d.contributionCount > 0) {
-                currentStreak++;
-            } else if (d.date !== todayStr) {
-                break;
-            }
-        }
+        let hasContributionToday = false;
+        let streakBroken = false;
 
-        // Check if today has contributions
-        const todayData = allDays.find(d => d.date === todayStr);
-        const hasContributionToday = todayData && todayData.contributionCount > 0;
+        // Iterate backwards through weeks
+        for (let w = weeks.length - 1; w >= 0; w--) {
+            const days = weeks[w].contributionDays;
+            // Iterate backwards through days
+            for (let d = days.length - 1; d >= 0; d--) {
+                const day = days[d];
+
+                // Skip future dates
+                if (day.date > todayStr) continue;
+
+                // Check if this is today
+                if (day.date === todayStr) {
+                    if (day.contributionCount > 0) {
+                        hasContributionToday = true;
+                    }
+                }
+
+                if (day.contributionCount > 0) {
+                    currentStreak++;
+                } else if (day.date !== todayStr) {
+                    // Zero contributions and not today -> streak broken
+                    streakBroken = true;
+                    break;
+                }
+            }
+            if (streakBroken) break;
+        }
 
         const result = {
             ...contribData,
