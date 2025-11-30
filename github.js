@@ -376,11 +376,11 @@ async function createHeatmapWidget() {
 
         // Right: Streak
         const totalText = footer.addText(`${streak} `);
-        totalText.textColor = theme.text;
-        totalText.font = new Font(FONT_NAME, 11);
+        totalText.textColor = !hasContributionToday ? theme.accent : theme.text;
+        totalText.font = !hasContributionToday ? new Font(`${FONT_NAME}-Bold`, 11) : new Font(FONT_NAME, 11);
         const totalText2 = footer.addText(`${streak === 1 ? "day" : "days"} streak`);
-        totalText2.textColor = theme.text;
-        totalText2.font = new Font(FONT_NAME, 11);
+        totalText2.textColor = !hasContributionToday ? theme.accent : theme.text;
+        totalText2.font = !hasContributionToday ? new Font(`${FONT_NAME}-Bold`, 11) : new Font(FONT_NAME, 11);
 
         footer.addSpacer(32);
 

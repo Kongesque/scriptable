@@ -1,11 +1,15 @@
 # 📊 GitHub Contribution Heatmap Widget
 
-A simple, elegant iOS widget for Scriptable that displays your GitHub contribution heatmap on your home screen.
+A simple, elegant iOS widget for Scriptable that displays your GitHub contribution heatmap and current streak.
+
+- **Visual Alert**: Turns red if you haven't contributed today.
+- **Interactive**: Tap the widget to open your GitHub profile.
+- **Offline Ready**: Caches data in iCloud for 24 hours.
 
 ## 🚀 Quick Setup
 
 ### 1. Install Scriptable
-Download [Scriptable](https://apps.apple.com/app/scriptable/id1405459188) from the App Store.
+Download [Scriptable](https://apps.apple.com/app/scriptable/id1405459188) from the App Store. Ensure iCloud Drive is enabled.
 
 ### 2. Create the Script
 1. Open Scriptable and tap the `+` button.
@@ -39,6 +43,3 @@ You can change the theme by editing the **Parameter** field in the widget settin
 - `auto` (default): Adapts to system dark/light mode.
 - `dark`: Forces dark mode.
 - `light`: Forces light mode.
-
-## 🌐 Offline Support
-The widget caches data for 24 hours, so your heatmap remains visible even without an internet connection.
