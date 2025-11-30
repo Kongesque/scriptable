@@ -33,6 +33,17 @@ const heatmapThemes = {
     }
 };
 
+const noContributionTheme = {
+    light: {
+        box: ["#eff2f5", "#ffcdd2", "#ef9a9a", "#e57373", "#d32f2f"],
+        accent: "#d32f2f"
+    },
+    dark: {
+        box: ["#2e2f37", "#5c1e1e", "#8c2b2b", "#c62828", "#ff5252"],
+        accent: "#ff5252"
+    }
+};
+
 // Cache configuration
 const CACHE_DIR = ".cache";
 const CACHE_FILE = "github_stats_cache.json";
@@ -115,24 +126,28 @@ class CacheManager {
 // Initialize cache manager
 const cacheManager = new CacheManager();
 
-function getTheme() {
-    if (themeParam === "auto") {
-        const light = heatmapThemes.light;
-        const dark = heatmapThemes.dark;
+function mapThemeColors(themeObj, darkThemeObj = null) {
+    if (darkThemeObj) {
         return {
-            bg: light.bg.map((c, i) => Color.dynamic(new Color(c), new Color(dark.bg[i]))),
-            text: Color.dynamic(new Color(light.text), new Color(dark.text)),
-            accent: Color.dynamic(new Color(light.accent), new Color(dark.accent)),
-            box: light.box.map((c, i) => Color.dynamic(new Color(c), new Color(dark.box[i])))
+            bg: themeObj.bg.map((c, i) => Color.dynamic(new Color(c), new Color(darkThemeObj.bg[i]))),
+            text: Color.dynamic(new Color(themeObj.text), new Color(darkThemeObj.text)),
+            accent: Color.dynamic(new Color(themeObj.accent), new Color(darkThemeObj.accent)),
+            box: themeObj.box.map((c, i) => Color.dynamic(new Color(c), new Color(darkThemeObj.box[i])))
         };
     }
-    const theme = heatmapThemes[themeParam] || heatmapThemes.light;
     return {
-        bg: theme.bg.map(c => new Color(c)),
-        text: new Color(theme.text),
-        accent: new Color(theme.accent),
-        box: theme.box.map(c => new Color(c))
+        bg: themeObj.bg.map(c => new Color(c)),
+        text: new Color(themeObj.text),
+        accent: new Color(themeObj.accent),
+        box: themeObj.box.map(c => new Color(c))
     };
+}
+
+function getTheme() {
+    if (themeParam === "auto") {
+        return mapThemeColors(heatmapThemes.light, heatmapThemes.dark);
+    }
+    return mapThemeColors(heatmapThemes[themeParam] || heatmapThemes.light);
 }
 
 function getHeatmapColor(count, themeBoxes) {
@@ -211,9 +226,14 @@ async function fetchHeatmapData() {
             }
         }
 
+        // Check if today has contributions
+        const todayData = allDays.find(d => d.date === todayStr);
+        const hasContributionToday = todayData && todayData.contributionCount > 0;
+
         const result = {
             ...contribData,
-            currentStreak
+            currentStreak,
+            hasContributionToday
         };
 
         console.log("✅ Fresh heatmap data fetched successfully");
@@ -253,26 +273,17 @@ async function createHeatmapWidget() {
         const data = await fetchHeatmapData();
         const theme = getTheme();
 
-        // Check if today has contributions
-        const todayStr = df.string(new Date());
-        const allContributionDays = data.contributionCalendar.weeks.flatMap(w => w.contributionDays);
-        const todayData = allContributionDays.find(d => d.date === todayStr);
-        const hasContributionToday = todayData && todayData.contributionCount > 0;
+        const hasContributionToday = data.hasContributionToday;
 
         if (!hasContributionToday) {
-            const lightRed = ["#eff2f5", "#ffcdd2", "#ef9a9a", "#e57373", "#d32f2f"];
-            const darkRed = ["#2e2f37", "#5c1e1e", "#8c2b2b", "#c62828", "#ff5252"];
-
+            let ncTheme;
             if (themeParam === "auto") {
-                theme.box = lightRed.map((c, i) => Color.dynamic(new Color(c), new Color(darkRed[i])));
-                theme.accent = Color.dynamic(new Color("#d32f2f"), new Color("#ff5252"));
-            } else if (themeParam === "dark") {
-                theme.box = darkRed.map(c => new Color(c));
-                theme.accent = new Color("#ff5252");
+                ncTheme = mapThemeColors(noContributionTheme.light, noContributionTheme.dark);
             } else {
-                theme.box = lightRed.map(c => new Color(c));
-                theme.accent = new Color("#d32f2f");
+                ncTheme = mapThemeColors(noContributionTheme[themeParam] || noContributionTheme.light);
             }
+            theme.box = ncTheme.box;
+            theme.accent = ncTheme.accent;
         }
 
         const weeks = data.contributionCalendar.weeks;
@@ -305,6 +316,8 @@ async function createHeatmapWidget() {
 
         grid.addSpacer();
 
+        const todayStr = df.string(new Date());
+
         for (let w = 0; w < displayWeeks.length; w++) {
             const col = grid.addStack();
             col.layoutVertically();
@@ -332,7 +345,7 @@ async function createHeatmapWidget() {
         footer.layoutHorizontally();
         footer.centerAlignContent();
 
-        footer.addSpacer(24);
+        footer.addSpacer(28);
 
         // Left: Username
         const userText = footer.addText(`@${username}`);
@@ -350,7 +363,7 @@ async function createHeatmapWidget() {
         totalText2.textColor = theme.text;
         totalText2.font = new Font(FONT_NAME, 11);
 
-        footer.addSpacer(26);
+        footer.addSpacer(30);
 
         return widget;
     } catch (error) {
