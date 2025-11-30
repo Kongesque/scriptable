@@ -147,20 +147,24 @@ function mapThemeColors(themeObj, darkThemeObj = null) {
     };
 }
 
-function getTheme() {
+function resolveTheme(themeSet) {
     if (themeParam === "auto") {
-        return mapThemeColors(heatmapThemes.light, heatmapThemes.dark);
+        return mapThemeColors(themeSet.light, themeSet.dark);
     }
-    return mapThemeColors(heatmapThemes[themeParam] || heatmapThemes.light);
+    return mapThemeColors(themeSet[themeParam] || themeSet.light);
 }
 
-function getHeatmapColor(count, themeBoxes) {
+function getTheme() {
+    return resolveTheme(heatmapThemes);
+}
+
+function getHeatmapColor(count, themeBoxes, maxContribution) {
     if (count === 0) return themeBoxes[0];
-    if (count >= 20) return themeBoxes[4];
-    if (count >= 10) return themeBoxes[3];
-    if (count >= 5) return themeBoxes[2];
-    if (count >= 1) return themeBoxes[1];
-    return themeBoxes[0];
+    const q = maxContribution / 4;
+    if (count >= q * 3) return themeBoxes[4];
+    if (count >= q * 2) return themeBoxes[3];
+    if (count >= q * 1) return themeBoxes[2];
+    return themeBoxes[1];
 }
 
 function createGradientBackground(theme) {
@@ -220,6 +224,7 @@ async function fetchHeatmapData() {
         let currentStreak = 0;
         let hasContributionToday = false;
         let streakBroken = false;
+        let maxContribution = 0;
 
         let lastContributionDate = null;
 
@@ -232,6 +237,10 @@ async function fetchHeatmapData() {
 
                 // Skip future dates
                 if (day.date > todayStr) continue;
+
+                if (day.contributionCount > maxContribution) {
+                    maxContribution = day.contributionCount;
+                }
 
                 // Check if this is today
                 if (day.date === todayStr) {
@@ -258,6 +267,7 @@ async function fetchHeatmapData() {
             ...contribData,
             currentStreak,
             hasContributionToday,
+            maxContribution,
             lastContributionDate: lastContributionDate ? lastContributionDate.toISOString() : null
         };
 
@@ -301,12 +311,7 @@ async function createHeatmapWidget() {
         const hasContributionToday = data.hasContributionToday;
 
         if (!hasContributionToday) {
-            let ncTheme;
-            if (themeParam === "auto") {
-                ncTheme = mapThemeColors(noContributionTheme.light, noContributionTheme.dark);
-            } else {
-                ncTheme = mapThemeColors(noContributionTheme[themeParam] || noContributionTheme.light);
-            }
+            const ncTheme = resolveTheme(noContributionTheme);
             theme.box = ncTheme.box;
             theme.accent = ncTheme.accent;
         }
@@ -338,6 +343,7 @@ async function createHeatmapWidget() {
         grid.centerAlignContent();
 
         const displayWeeks = weeks.slice(-20);
+        const maxContribution = data.maxContribution || 0;
 
         grid.addSpacer();
 
@@ -356,7 +362,7 @@ async function createHeatmapWidget() {
                 if (!day || day.date > todayStr) {
                     cell.backgroundColor = Color.clear();
                 } else {
-                    cell.backgroundColor = getHeatmapColor(day?.contributionCount || 0, theme.box);
+                    cell.backgroundColor = getHeatmapColor(day?.contributionCount || 0, theme.box, maxContribution);
                 }
                 cell.cornerRadius = 2;
             }
@@ -404,12 +410,9 @@ async function createHeatmapWidget() {
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
                 if (diffDays < 7) {
-                    statusText = `Last commit ${diffDays} ${diffDays === 1 ? "day" : "days"} ago`;
+                    statusText = diffDays === 1 ? "Last commit yesterday" : `Last commit ${diffDays} days ago`;
                 } else {
-                    const day = String(lastDate.getDate()).padStart(2, '0');
-                    const month = String(lastDate.getMonth() + 1).padStart(2, '0');
-                    const year = String(lastDate.getFullYear()).slice(-2);
-                    statusText = `Last commit ${day}-${month}-${year}`;
+                    statusText = `Last commit ${df.string(lastDate)}`;
                 }
             } else {
                 statusText = "No recent commits";
