@@ -328,11 +328,10 @@ async function createHeatmapWidget() {
             const topRow = widget.addStack();
             topRow.layoutHorizontally();
             topRow.addSpacer();
-            const offlineIndicator = topRow.addText("Offline");
+            const offlineIndicator = topRow.addText("offline");
             offlineIndicator.font = new Font(`${FONT_NAME}-Bold`, 8);
             offlineIndicator.textColor = Color.orange();
-            topRow.addSpacer(12);
-            widget.addSpacer(2);
+            topRow.addSpacer(24);
         }
 
         widget.addSpacer();
@@ -376,7 +375,7 @@ async function createHeatmapWidget() {
         footer.layoutHorizontally();
         footer.centerAlignContent();
 
-        footer.addSpacer(30);
+        footer.addSpacer(24);
 
         // Left: Username
         const userText = footer.addText(`@${username}`);
@@ -425,7 +424,7 @@ async function createHeatmapWidget() {
         totalText.textColor = statusColor;
         totalText.font = new Font(FONT_NAME, 11);
 
-        footer.addSpacer(32);
+        footer.addSpacer(28);
 
         return widget;
     } catch (error) {
