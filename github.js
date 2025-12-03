@@ -75,8 +75,6 @@ class CacheManager {
 
     async saveCache(data) {
         try {
-
-
             const cacheData = {
                 timestamp: Date.now(),
                 data: data
@@ -94,7 +92,6 @@ class CacheManager {
     async loadCache(ignoreExpiry = false) {
         try {
             if (!this.fm.fileExists(this.cacheFile)) {
-
                 return null;
             }
 
@@ -107,10 +104,8 @@ class CacheManager {
             const isValid = (Date.now() - cacheData.timestamp) < CACHE_DURATION;
 
             if (!isValid && !ignoreExpiry) {
-
                 return null;
             }
-
 
             return cacheData.data;
         } catch (error) {
@@ -172,7 +167,7 @@ async function fetchHeatmapData() {
         const cachedData = await cacheManager.loadCache();
         if (cachedData && cachedData.heatmapData) {
 
-            return { ...cachedData.heatmapData, isCached: true };
+            return { ...cachedData.heatmapData, isCached: true, cacheTimestamp: cachedData.timestamp };
         }
     } catch (e) {
         console.warn("⚠️ Cache check failed, proceeding to network:", e);
@@ -189,21 +184,21 @@ async function fetchHeatmapData() {
         fromDate.setDate(now.getDate() - 147); // 21 weeks
 
         const query = `{
-      user(login: "${username}") {
-        contributionsCollection(from: "${fromDate.toISOString()}", to: "${toDate.toISOString()}") {
-          totalCommitContributions
-          contributionCalendar {
-            totalContributions
-            weeks {
-              contributionDays {
-                contributionCount
-                date
-              }
+            user(login: "${username}") {
+                contributionsCollection(from: "${fromDate.toISOString()}", to: "${toDate.toISOString()}") {
+                totalCommitContributions
+                contributionCalendar {
+                    totalContributions
+                    weeks {
+                    contributionDays {
+                        contributionCount
+                        date
+                    }
+                    }
+                }
+                }
             }
-          }
-        }
-      }
-    }`;
+        }`;
 
         const req = new Request("https://api.github.com/graphql");
         req.method = "POST";
@@ -275,8 +270,6 @@ async function fetchHeatmapData() {
             lastContributionDate: lastContributionDate ? lastContributionDate.toISOString() : null
         };
 
-
-
         // Save to cache
         await cacheManager.saveCache({
             heatmapData: result,
@@ -290,7 +283,7 @@ async function fetchHeatmapData() {
         const cachedData = await cacheManager.loadCache(true); // true = ignore expiry
         if (cachedData && cachedData.heatmapData) {
 
-            return { ...cachedData.heatmapData, isCached: true };
+            return { ...cachedData.heatmapData, isCached: true, cacheTimestamp: cachedData.timestamp };
         }
         throw error;
     }
@@ -329,14 +322,21 @@ async function createHeatmapWidget() {
         widget.setPadding(11, 11, 21, 11);
         widget.url = `https://github.com/${username}`;
 
-        // Add offline indicator if data is from cache
-        if (data.isCached) {
+        // Add last updated indicator if data is from cache
+        if (data.isCached && data.cacheTimestamp) {
             const topRow = widget.addStack();
             topRow.layoutHorizontally();
             topRow.addSpacer();
-            const offlineIndicator = topRow.addText("offline");
-            offlineIndicator.font = new Font(`${FONT_NAME}-Bold`, 8);
-            offlineIndicator.textColor = Color.orange();
+
+            const timeFmt = new DateFormatter();
+            timeFmt.useShortTimeStyle();
+            const timeStr = timeFmt.string(new Date(data.cacheTimestamp));
+
+            const updateText = topRow.addText(`↻ ${timeStr}`);
+            updateText.font = new Font(FONT_NAME, 9);
+            updateText.textColor = Color.gray();
+            updateText.textOpacity = 0.6;
+
             topRow.addSpacer(26);
         }
 
