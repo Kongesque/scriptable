@@ -193,6 +193,7 @@ async function fetchHeatmapData() {
                     contributionDays {
                         contributionCount
                         date
+                        weekday
                     }
                     }
                 }
@@ -267,7 +268,8 @@ async function fetchHeatmapData() {
             currentStreak,
             hasContributionToday,
             maxContribution,
-            lastContributionDate: lastContributionDate ? lastContributionDate.toISOString() : null
+            lastContributionDate: lastContributionDate ? lastContributionDate.toISOString() : null,
+            timestamp: Date.now()
         };
 
         // Save to cache
@@ -322,23 +324,28 @@ async function createHeatmapWidget() {
         widget.setPadding(11, 11, 21, 11);
         widget.url = `https://github.com/${username}`;
 
-        // Add last updated indicator if data is from cache
-        if (data.isCached && data.cacheTimestamp) {
-            const topRow = widget.addStack();
-            topRow.layoutHorizontally();
-            topRow.addSpacer();
+        // Always show last updated time
+        const topRow = widget.addStack();
+        topRow.layoutHorizontally();
+        topRow.addSpacer();
 
-            const timeFmt = new DateFormatter();
-            timeFmt.useShortTimeStyle();
-            const timeStr = timeFmt.string(new Date(data.cacheTimestamp));
+        const timeFmt = new DateFormatter();
+        timeFmt.useShortTimeStyle();
+        // Use data.timestamp which we now ensure exists for both cached and fresh data
+        // For backward compatibility with old cache, fallback to cacheTimestamp or current time
+        const ts = data.timestamp || data.cacheTimestamp || Date.now();
+        const timeStr = timeFmt.string(new Date(ts));
 
-            const updateText = topRow.addText(`↻ ${timeStr}`);
-            updateText.font = new Font(FONT_NAME, 9);
-            updateText.textColor = Color.gray();
-            updateText.textOpacity = 0.6;
+        const updateText = topRow.addText(`[${timeStr}]`);
+        updateText.font = new Font(FONT_NAME, 9);
+        updateText.textColor = Color.gray();
+        updateText.textOpacity = 0.6;
 
-            topRow.addSpacer(26);
-        }
+        topRow.addSpacer(26);
+
+        // Set next refresh time
+        const nextRefresh = new Date(ts + CACHE_DURATION);
+        widget.refreshAfterDate = nextRefresh;
 
         widget.addSpacer();
 
@@ -360,7 +367,7 @@ async function createHeatmapWidget() {
             col.spacing = BOX_SPACING;
 
             for (let d = 0; d < 7; d++) {
-                const day = displayWeeks[w].contributionDays[d];
+                const day = displayWeeks[w].contributionDays.find(dDay => dDay.weekday === d);
                 const cell = col.addStack();
                 cell.size = new Size(BOX_SIZE, BOX_SIZE);
 
