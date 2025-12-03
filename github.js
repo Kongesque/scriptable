@@ -51,7 +51,7 @@ const noContributionTheme = {
 // Cache configuration
 const CACHE_DIR = ".cache";
 const CACHE_FILE = "github_stats_cache.json";
-const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+const CACHE_DURATION = 60 * 60 * 1000; // 60 minutes in milliseconds
 
 // Cache management class
 class CacheManager {
@@ -59,19 +59,14 @@ class CacheManager {
         this.fm = FileManager.iCloud();
         this.cacheDir = this.fm.joinPath(this.fm.documentsDirectory(), CACHE_DIR);
         this.cacheFile = this.fm.joinPath(this.cacheDir, CACHE_FILE);
-        console.log(`Cache directory path: ${this.cacheDir}`);
-        console.log(`Cache file path: ${this.cacheFile}`);
+
         this.ensureCacheDir();
     }
 
     ensureCacheDir() {
         try {
             if (!this.fm.fileExists(this.cacheDir)) {
-                console.log("Creating cache directory...");
                 this.fm.createDirectory(this.cacheDir, true);
-                console.log("Cache directory created successfully");
-            } else {
-                console.log("Cache directory already exists");
             }
         } catch (error) {
             console.error("Failed to create cache directory:", error);
@@ -80,7 +75,7 @@ class CacheManager {
 
     async saveCache(data) {
         try {
-            console.log(`Attempting to save cache with data: ${Object.keys(data).join(', ')}`);
+
 
             const cacheData = {
                 timestamp: Date.now(),
@@ -88,20 +83,18 @@ class CacheManager {
             };
 
             const jsonString = JSON.stringify(cacheData);
-            console.log(`Writing cache data, size: ${jsonString.length} characters`);
 
             this.fm.writeString(this.cacheFile, jsonString);
-            console.log("Cache saved successfully!");
         } catch (error) {
             console.error("Failed to save cache:", error);
             console.error(`Error details: ${error.message}`);
         }
     }
 
-    async loadCache() {
+    async loadCache(ignoreExpiry = false) {
         try {
             if (!this.fm.fileExists(this.cacheFile)) {
-                console.log("No cache file found");
+
                 return null;
             }
 
@@ -110,15 +103,15 @@ class CacheManager {
             const cacheContent = this.fm.readString(this.cacheFile);
             const cacheData = JSON.parse(cacheContent);
 
-            // Check if cache is still valid (within 24 hours)
+            // Check if cache is still valid
             const isValid = (Date.now() - cacheData.timestamp) < CACHE_DURATION;
 
-            if (!isValid) {
-                console.log("Cache expired");
+            if (!isValid && !ignoreExpiry) {
+
                 return null;
             }
 
-            console.log("Cache loaded successfully");
+
             return cacheData.data;
         } catch (error) {
             console.error("Failed to load cache:", error);
@@ -174,8 +167,20 @@ function createGradientBackground(theme) {
 }
 
 async function fetchHeatmapData() {
+    // 1. Try to load from cache first
     try {
-        console.log("🌐 Fetching fresh heatmap data...");
+        const cachedData = await cacheManager.loadCache();
+        if (cachedData && cachedData.heatmapData) {
+
+            return { ...cachedData.heatmapData, isCached: true };
+        }
+    } catch (e) {
+        console.warn("⚠️ Cache check failed, proceeding to network:", e);
+    }
+
+    // 2. If no cache or expired, fetch from network
+    try {
+
         const now = new Date();
         const toDate = new Date(now);
         toDate.setDate(now.getDate() + 1);
@@ -270,7 +275,7 @@ async function fetchHeatmapData() {
             lastContributionDate: lastContributionDate ? lastContributionDate.toISOString() : null
         };
 
-        console.log("✅ Fresh heatmap data fetched successfully");
+
 
         // Save to cache
         await cacheManager.saveCache({
@@ -281,9 +286,10 @@ async function fetchHeatmapData() {
         return result;
     } catch (error) {
         console.error("❌ Failed to fetch heatmap data: " + error.message);
-        const cachedData = await cacheManager.loadCache();
+        // Fallback: Try to load expired cache
+        const cachedData = await cacheManager.loadCache(true); // true = ignore expiry
         if (cachedData && cachedData.heatmapData) {
-            console.log("✅ Using cached heatmap data as fallback");
+
             return { ...cachedData.heatmapData, isCached: true };
         }
         throw error;
