@@ -249,18 +249,19 @@ async function fetchHeatmapData() {
                     }
                 }
 
-                if (day.contributionCount > 0) {
-                    currentStreak++;
-                    if (!lastContributionDate) {
-                        lastContributionDate = new Date(day.date);
+                if (!streakBroken) {
+                    if (day.contributionCount > 0) {
+                        currentStreak++;
+                    } else if (day.date !== todayStr) {
+                        // Zero contributions and not today -> streak broken
+                        streakBroken = true;
                     }
-                } else if (day.date !== todayStr) {
-                    // Zero contributions and not today -> streak broken
-                    streakBroken = true;
-                    break;
+                }
+
+                if (!lastContributionDate && day.contributionCount > 0) {
+                    lastContributionDate = new Date(day.date);
                 }
             }
-            if (streakBroken) break;
         }
 
         const result = {
