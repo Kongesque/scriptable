@@ -167,7 +167,7 @@ async function fetchHeatmapData() {
         const cachedData = await cacheManager.loadCache();
         if (cachedData && cachedData.heatmapData) {
 
-            return { ...cachedData.heatmapData, isCached: true, cacheTimestamp: cachedData.timestamp };
+            return { ...cachedData.heatmapData, cacheTimestamp: cachedData.timestamp };
         }
     } catch (e) {
         console.warn("⚠️ Cache check failed, proceeding to network:", e);
@@ -285,7 +285,7 @@ async function fetchHeatmapData() {
         const cachedData = await cacheManager.loadCache(true); // true = ignore expiry
         if (cachedData && cachedData.heatmapData) {
 
-            return { ...cachedData.heatmapData, isCached: true, cacheTimestamp: cachedData.timestamp };
+            return { ...cachedData.heatmapData, cacheTimestamp: cachedData.timestamp };
         }
         throw error;
     }
@@ -352,6 +352,7 @@ async function createHeatmapWidget() {
         const grid = widget.addStack();
         grid.layoutHorizontally();
         grid.centerAlignContent();
+        grid.spacing = BOX_SPACING;
 
         const displayWeeks = weeks.slice(-20);
         const maxContribution = data.maxContribution || 0;
@@ -377,9 +378,6 @@ async function createHeatmapWidget() {
                     cell.backgroundColor = getHeatmapColor(day?.contributionCount || 0, theme.box, q);
                 }
                 cell.cornerRadius = 2;
-            }
-            if (w < displayWeeks.length - 1) {
-                grid.addSpacer(BOX_SPACING);
             }
         }
 
