@@ -1,6 +1,7 @@
 const username = "kongesque"; // replace with your github username
 const token = Keychain.get("github_token_here"); // replace this with your token
 const theme = "auto"; // "auto", "dark", or "light"
+const debug = true; // set to false to hide the top-right label
 const FONT_NAME = "Menlo";
 const BOX_SIZE = 10;
 const BOX_SPACING = 4;
@@ -85,7 +86,6 @@ class CacheManager {
             this.fm.writeString(this.cacheFile, jsonString);
         } catch (error) {
             console.error("Failed to save cache:", error);
-            console.error(`Error details: ${error.message}`);
         }
     }
 
@@ -286,165 +286,178 @@ async function fetchHeatmapData() {
         const cachedData = await cacheManager.loadCache(true); // true = ignore expiry
         if (cachedData && cachedData.heatmapData) {
 
-            return { ...cachedData.heatmapData, cacheTimestamp: cachedData.timestamp };
+            return { ...cachedData.heatmapData, cacheTimestamp: cachedData.timestamp, errorMessage: error.message };
         }
-        throw error;
+
+        return {
+            hasContributionToday: false,
+            contributionCalendar: { weeks: [] },
+            currentStreak: 0,
+            maxContribution: 0,
+            timestamp: Date.now(),
+            lastContributionDate: null,
+            errorMessage: error.message
+        };
     }
 }
 
-function createErrorWidget(message) {
-    const widget = new ListWidget();
-    widget.backgroundGradient = createGradientBackground(getTheme());
 
-    const errorText = widget.addText(message);
-    errorText.font = new Font(FONT_NAME, 14);
-    errorText.textColor = Color.red();
-    errorText.centerAlignText();
-
-    return widget;
-}
 
 async function createHeatmapWidget() {
-    try {
-        const data = await fetchHeatmapData();
-        const theme = getTheme();
+    // try {
+    const data = await fetchHeatmapData();
+    const theme = getTheme();
 
-        const hasContributionToday = data.hasContributionToday;
+    const hasContributionToday = data.hasContributionToday;
 
-        if (!hasContributionToday) {
-            const ncTheme = resolveTheme(noContributionTheme);
-            theme.box = ncTheme.box;
-            theme.accent = ncTheme.accent;
-        }
-
-        const weeks = data.contributionCalendar.weeks;
-        const streak = data.currentStreak;
-
-        const widget = new ListWidget();
-        widget.backgroundGradient = createGradientBackground(theme);
-        widget.setPadding(11, 11, 21, 11);
-        widget.url = `https://github.com/${username}`;
-
-        // Always show last updated time
-        const topRow = widget.addStack();
-        topRow.layoutHorizontally();
-        topRow.addSpacer();
-
-        const timeFmt = new DateFormatter();
-        timeFmt.useShortTimeStyle();
-        // Use data.timestamp which we now ensure exists for both cached and fresh data
-        // For backward compatibility with old cache, fallback to cacheTimestamp or current time
-        const ts = data.timestamp || data.cacheTimestamp || Date.now();
-        const timeStr = timeFmt.string(new Date(ts));
-
-        const updateText = topRow.addText(`[${timeStr}]`);
-        updateText.font = new Font(FONT_NAME, 9);
-        updateText.textColor = Color.gray();
-        updateText.textOpacity = 0.6;
-
-        topRow.addSpacer(26);
-
-        // Set next refresh time
-        const nextRefresh = new Date(ts + CACHE_DURATION);
-        widget.refreshAfterDate = nextRefresh;
-
-        widget.addSpacer();
-
-        const grid = widget.addStack();
-        grid.layoutHorizontally();
-        grid.centerAlignContent();
-        grid.spacing = BOX_SPACING;
-
-        const displayWeeks = weeks.slice(-20);
-        const maxContribution = data.maxContribution || 0;
-
-        grid.addSpacer();
-
-        const todayStr = df.string(new Date());
-        const q = maxContribution / 4;
-
-        for (let w = 0; w < displayWeeks.length; w++) {
-            const col = grid.addStack();
-            col.layoutVertically();
-            col.spacing = BOX_SPACING;
-
-            for (let d = 0; d < 7; d++) {
-                const day = displayWeeks[w].contributionDays.find(dDay => dDay.weekday === d);
-                const cell = col.addStack();
-                cell.size = new Size(BOX_SIZE, BOX_SIZE);
-
-                if (!day || day.date > todayStr) {
-                    cell.backgroundColor = Color.clear();
-                } else {
-                    cell.backgroundColor = getHeatmapColor(day?.contributionCount || 0, theme.box, q);
-                }
-                cell.cornerRadius = 2;
-            }
-        }
-
-        grid.addSpacer();
-        widget.addSpacer();
-
-        const footer = widget.addStack();
-        footer.layoutHorizontally();
-        footer.centerAlignContent();
-
-        footer.addSpacer(26);
-
-        // Left: Username
-        const userText = footer.addText(`@${username}`);
-        userText.textColor = theme.text;
-        userText.font = new Font(FONT_NAME, 11);
-        userText.opacity = 0.8;
-
-        footer.addSpacer();
-
-        // Right: Streak / Last Commit
-        let statusText = "";
-        let statusColor = theme.text;
-
-        if (hasContributionToday) {
-            statusText = `${streak} ${streak === 1 ? "day" : "days"} streak`;
-            statusColor = theme.accent; // Green (or theme accent)
-        } else {
-            let lastDate = null;
-            if (data.lastContributionDate) {
-                const dateFromData = new Date(data.lastContributionDate);
-                lastDate = new Date(dateFromData.getUTCFullYear(), dateFromData.getUTCMonth(), dateFromData.getUTCDate());
-            }
-
-            if (lastDate) {
-                const now = new Date();
-                // Reset time part for accurate day calculation
-                now.setHours(0, 0, 0, 0);
-                lastDate.setHours(0, 0, 0, 0);
-
-                const diffTime = Math.abs(now - lastDate);
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-                if (diffDays < 7) {
-                    statusText = diffDays === 1 ? "Last commit yesterday" : `Last commit ${diffDays} days ago`;
-                } else {
-                    statusText = `Last commit ${df.string(lastDate)}`;
-                }
-            } else {
-                statusText = "No recent commits";
-            }
-
-            statusColor = theme.accent;
-        }
-
-        const totalText = footer.addText(statusText);
-        totalText.textColor = statusColor;
-        totalText.font = new Font(FONT_NAME, 11);
-
-        footer.addSpacer(26);
-
-        return widget;
-    } catch (error) {
-        console.error("Failed to create heatmap widget:", error);
-        return createErrorWidget("Failed to load heatmap data\nCheck internet connection");
+    if (!hasContributionToday) {
+        const ncTheme = resolveTheme(noContributionTheme);
+        theme.box = ncTheme.box;
+        theme.accent = ncTheme.accent;
     }
+
+    const weeks = data.contributionCalendar.weeks;
+    const streak = data.currentStreak;
+
+    const widget = new ListWidget();
+    widget.backgroundGradient = createGradientBackground(theme);
+    widget.setPadding(11, 11, 21, 11);
+    widget.url = `https://github.com/${username}`;
+
+    // Always show last updated time
+    const topRow = widget.addStack();
+    topRow.layoutHorizontally();
+    topRow.addSpacer();
+
+    const timeFmt = new DateFormatter();
+    timeFmt.useShortTimeStyle();
+    // Use data.timestamp which we now ensure exists for both cached and fresh data
+    // For backward compatibility with old cache, fallback to cacheTimestamp or current time
+    const ts = data.timestamp || data.cacheTimestamp || Date.now();
+    const timeStr = timeFmt.string(new Date(ts));
+
+    if (debug) {
+        let labelText = `[${timeStr}]`;
+        let labelColor = Color.gray();
+        let labelOpacity = 0.6;
+
+        if (data.errorMessage) {
+            if (data.errorMessage.includes("offline")) {
+                labelText = "[offline]";
+            } else if (data.errorMessage.toLowerCase().includes("timeout")) {
+                labelText = "[timeout]";
+            } else {
+                labelText = "[error]";
+            }
+            labelColor = Color.red();
+            labelOpacity = 1.0;
+        }
+
+        const updateText = topRow.addText(labelText);
+        updateText.font = new Font(FONT_NAME, 9);
+        updateText.textColor = labelColor;
+        updateText.textOpacity = labelOpacity;
+    }
+
+    topRow.addSpacer(26);
+
+    // Set next refresh time
+    const nextRefresh = new Date(ts + CACHE_DURATION);
+    widget.refreshAfterDate = nextRefresh;
+
+    widget.addSpacer();
+
+    const grid = widget.addStack();
+    grid.layoutHorizontally();
+    grid.centerAlignContent();
+    grid.spacing = BOX_SPACING;
+
+    const displayWeeks = weeks.slice(-20);
+    const maxContribution = data.maxContribution || 0;
+
+    grid.addSpacer();
+
+    const todayStr = df.string(new Date());
+    const q = maxContribution / 4;
+
+    for (let w = 0; w < displayWeeks.length; w++) {
+        const col = grid.addStack();
+        col.layoutVertically();
+        col.spacing = BOX_SPACING;
+
+        for (let d = 0; d < 7; d++) {
+            const day = displayWeeks[w].contributionDays.find(dDay => dDay.weekday === d);
+            const cell = col.addStack();
+            cell.size = new Size(BOX_SIZE, BOX_SIZE);
+
+            if (!day || day.date > todayStr) {
+                cell.backgroundColor = Color.clear();
+            } else {
+                cell.backgroundColor = getHeatmapColor(day?.contributionCount || 0, theme.box, q);
+            }
+            cell.cornerRadius = 2;
+        }
+    }
+
+    grid.addSpacer();
+    widget.addSpacer();
+
+    const footer = widget.addStack();
+    footer.layoutHorizontally();
+    footer.centerAlignContent();
+
+    footer.addSpacer(26);
+
+    // Left: Username
+    const userText = footer.addText(`@${username}`);
+    userText.textColor = theme.text;
+    userText.font = new Font(FONT_NAME, 11);
+    userText.opacity = 0.8;
+
+    footer.addSpacer();
+
+    // Right: Streak / Last Commit
+    let statusText = "";
+    let statusColor = theme.text;
+
+    if (hasContributionToday) {
+        statusText = `${streak} ${streak === 1 ? "day" : "days"} streak`;
+        statusColor = theme.accent; // Green (or theme accent)
+    } else {
+        let lastDate = null;
+        if (data.lastContributionDate) {
+            const dateFromData = new Date(data.lastContributionDate);
+            lastDate = new Date(dateFromData.getUTCFullYear(), dateFromData.getUTCMonth(), dateFromData.getUTCDate());
+        }
+
+        if (lastDate) {
+            const now = new Date();
+            // Reset time part for accurate day calculation
+            now.setHours(0, 0, 0, 0);
+            lastDate.setHours(0, 0, 0, 0);
+
+            const diffTime = Math.abs(now - lastDate);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays < 7) {
+                statusText = diffDays === 1 ? "last commit yesterday" : `last commit ${diffDays} days ago`;
+            } else {
+                statusText = `last commit ${df.string(lastDate)}`;
+            }
+        } else {
+            statusText = "no recent commits";
+        }
+
+        statusColor = theme.accent;
+    }
+
+    const totalText = footer.addText(statusText);
+    totalText.textColor = statusColor;
+    totalText.font = new Font(FONT_NAME, 11);
+
+    footer.addSpacer(26);
+
+    return widget;
 }
 
 const widget = await createHeatmapWidget();
